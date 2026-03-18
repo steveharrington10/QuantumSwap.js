@@ -65,8 +65,8 @@ const DEADLINE_OFFSET = process.env.QC_DEADLINE_OFFSET ? Number(process.env.QC_D
 
 /** Returns deadline as UTC Unix timestamp: current chain block timestamp + DEADLINE_OFFSET. */
 async function deadline(provider) {
-  const blockNumber = await provider.getBlockNumber();
-  const block = await provider.getBlock(blockNumber);
+  // Use "latest" — getBlock(numeric) can send quantities like 0x08; strict Geth rejects leading-zero hex digits.
+  const block = await provider.getBlock("latest");
   const blockTimestamp = block && block.timestamp != null ? Number(block.timestamp) : Math.floor(Date.now() / 1000);
   return BigInt(blockTimestamp + DEADLINE_OFFSET);
 }

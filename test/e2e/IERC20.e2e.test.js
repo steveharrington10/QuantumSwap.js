@@ -17,7 +17,8 @@ const { getProvider, Wallet } = require("quantumcoin");
 
 // NOTE: this test file lives at test/e2e/*.js, so package root is two levels up.
 // Require the package root so it works for both TS (dist) and JS (src) packages.
-const { IERC20, IERC20__factory } = require("../..");
+// IERC20 is interface-only (bytecode "0x"); deploy QuantumSwapV2ERC20 then use IERC20 at that address.
+const { IERC20, QuantumSwapV2ERC20__factory } = require("../..");
 
 // Hardcoded test wallet (test-only; never use for real funds)
 const TEST_WALLET_ENCRYPTED_JSON =
@@ -38,8 +39,7 @@ describe("IERC20 transactional", () => {
     const provider = getProvider(rpcUrl, chainId);
     const wallet = Wallet.fromEncryptedJsonSync(TEST_WALLET_ENCRYPTED_JSON, TEST_WALLET_PASSPHRASE, provider);
 
-    const factory = new IERC20__factory(wallet);
-    // Build deploy transaction + estimate gas (best-effort).
+    const factory = new QuantumSwapV2ERC20__factory(wallet);
     const deployTxReq = factory.getDeployTransaction();
     let deployGasLimit = 600000;
     try {
@@ -50,12 +50,13 @@ describe("IERC20 transactional", () => {
       deployGasLimit = 6_000_000;
     }
     // Some large contracts underestimate gas; apply a sane floor based on bytecode size.
-    const bytecodeSize = (IERC20.bytecode || "").length;
+    const bytecodeSize = (deployTxReq.data || "").length;
     if (bytecodeSize > 20000 && deployGasLimit < 6_000_000) deployGasLimit = 6_000_000;
 
-    const contract = await factory.deploy({ gasLimit: deployGasLimit });
+    const deployed = await factory.deploy({ gasLimit: deployGasLimit });
+    const contract = IERC20.connect(deployed.target, wallet);
 
-    const deployTx = contract.deployTransaction();
+    const deployTx = deployed.deployTransaction();
     assert.ok(deployTx && deployTx.hash);
     const deployReceipt = await deployTx.wait(1, 600_000);
     assert.ok(deployReceipt);
